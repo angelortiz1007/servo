@@ -93,9 +93,11 @@ fn init_logger() {
     crate::env_logger::init();
 }
 
-fn init(
+unsafe fn init(
     opts: CInitOptions,
     gl: gl_glue::ServoGl,
+    gl_context: Option<*const c_void>,
+    display: Option<*const c_void>,
     wakeup: extern "C" fn(),
     callbacks: CHostCallbacks,
 ) {
@@ -128,6 +130,8 @@ fn init(
             VRInitOptions::VRExternal(opts.vr_pointer)
         },
         enable_subpixel_text_antialiasing: opts.enable_subpixel_text_antialiasing,
+        gl_context_pointer: gl_context,
+        native_display_pointer: display,
     };
 
     let wakeup = Box::new(WakeupCallback::new(wakeup));
@@ -145,7 +149,9 @@ pub extern "C" fn init_with_egl(
 ) {
     init_logger();
     let gl = gl_glue::egl::init().unwrap();
-    init(opts, gl, wakeup, callbacks)
+    unsafe {
+        init(opts, gl.gl_wrapper, Some(gl.gl_context), Some(gl.display), wakeup, callbacks)
+    }
 }
 
 #[cfg(any(target_os = "linux", target_os = "windows", target_os = "macos"))]
@@ -157,7 +163,9 @@ pub extern "C" fn init_with_gl(
 ) {
     init_logger();
     let gl = gl_glue::gl::init().unwrap();
-    init(opts, gl, wakeup, callbacks)
+    unsafe {
+        init(opts, gl, None, None, wakeup, callbacks)
+    }
 }
 
 #[no_mangle]
